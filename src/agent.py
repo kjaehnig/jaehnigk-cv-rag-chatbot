@@ -154,16 +154,12 @@ _META_LINE = re.compile(
 )
 
 
-# ---------------------------------------------------------------------------
-# Query classification
-# ---------------------------------------------------------------------------
+
 def _wants_list(query: str) -> bool:
     return any(t in query.lower() for t in _LIST_TRIGGERS)
 
 
-# ---------------------------------------------------------------------------
-# Prompts
-# ---------------------------------------------------------------------------
+
 def build_prompt(query, context_chunks, context_meta=None):
     context_meta = context_meta or []
     blocks = []
@@ -205,9 +201,7 @@ def agentic_decide(llm, query: str) -> bool:
     return "SEARCH" in out["choices"][0]["text"].upper()
 
 
-# ---------------------------------------------------------------------------
-# Post-processing
-# ---------------------------------------------------------------------------
+
 def _fix_pronouns(text: str, anchor: str) -> str:
     """Rewrite gendered pronouns to they/them forms, but only in sentences
     that mention the candidate (so collaborators keep their own pronouns)."""
@@ -259,15 +253,13 @@ def _clean(text: str) -> str:
             kept.append(b)
         t = "\n\n".join(kept)
 
-    # 5. Fix pronouns.
+    # 4. Fix pronouns.
     t = _fix_pronouns(t, AUTHOR_NAME)
 
     return t.strip()
 
 
-# ---------------------------------------------------------------------------
-# Generation
-# ---------------------------------------------------------------------------
+
 def generate_response(llm, query, context_chunks, context_meta=None,
                       max_tokens=MAX_NEW_TOKENS):
     out = llm(

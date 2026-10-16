@@ -12,6 +12,8 @@ st.set_page_config(page_title="Career RAG", page_icon="💼", layout="wide")
 st.title("Chat with My Career Portfolio")
 st.caption("Ask about my GitHub projects, publications, or CV. Local LLM + Agentic RAG.")
 
+
+
 # --- Sidebar ---
 with st.sidebar:
     st.header("Knowledge Base")
@@ -42,14 +44,20 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
+
+
 # --- Load resources ---
 with st.spinner("Loading model (first run downloads ~2 GB, cached after)..."):
     llm = load_llm()
 embedder = load_embedder()
 collection = get_collection()
 
+
+
 if collection is None:
     st.info("No knowledge base yet. Click **Rebuild Knowledge Base** in the sidebar.")
+
+
 
 # --- Chat ---
 if "messages" not in st.session_state:
@@ -58,6 +66,8 @@ if "messages" not in st.session_state:
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
+
+
 
 if prompt := st.chat_input("Ask about my projects, publications, or CV..."):
     st.session_state.messages.append({"role": "user", "content": prompt})

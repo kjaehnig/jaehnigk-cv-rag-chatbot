@@ -183,8 +183,7 @@ def _split_into_sections(text: str) -> list[tuple[str, str]]:
             current_body.append(line.rstrip())
     flush()
 
-    # Merge adjacent headers that carry no body — e.g. "Data Analyst" followed
-    # by "Flatiron Institute" followed by "Aug 2021 – Jan 2022".
+    # Merge adjacent headers that carry no body
     merged: list[tuple[str, str]] = []
     pending: list[str] = []
     for header, body in sections:
@@ -209,9 +208,7 @@ def _split_into_sections(text: str) -> list[tuple[str, str]]:
             merged2.append((header, body))
     return merged2
 
-# =============================================================================
-# 3. Paragraph-aware packing
-# =============================================================================
+
 def _split_paragraphs(text: str) -> list[str]:
     return [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
 
@@ -286,9 +283,7 @@ def _pack_text(text: str, source: str, section: str, provenance: str) -> list[Do
     return docs
 
 
-# =============================================================================
-# 4. Document-type chunkers
-# =============================================================================
+
 def _chunk_general(doc: Document) -> list[Document]:
     """CV, README, plain text — structural section splitting."""
     source = Path(doc.metadata.get("source", "?")).name
@@ -314,9 +309,7 @@ def _chunk_publication(doc: Document) -> list[Document]:
     return _pack_text(doc.page_content, source, section, prov)
 
 
-# =============================================================================
-# 5. Publication section splitter (unchanged structurally)
-# =============================================================================
+
 SECTION_PATTERNS = [
     ("abstract",        r"abstract"),
     ("introduction",    r"introduction|intro"),
@@ -401,9 +394,7 @@ def _split_publication_pages(pages: list[Document]) -> list[Document]:
     return tagged
 
 
-# =============================================================================
-# 6. Public API
-# =============================================================================
+
 def load_documents(data_dir: Path = DATA_DIR) -> list[Document]:
     docs: list[Document] = []
     for fp in Path(data_dir).rglob("*"):

@@ -5,9 +5,6 @@ import chromadb
 from .config import CHROMA_PATH, COLLECTION_NAME, TOP_K
 
 
-# Sections we exclude by default when retrieving. These are either
-# not the candidate's original contribution or too generic to
-# describe what they can actually do.
 EXCLUDE_SECTIONS = [
     "introduction", "background",
     "references", "acknowledgments", "appendix",
