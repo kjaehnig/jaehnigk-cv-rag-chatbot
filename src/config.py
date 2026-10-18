@@ -6,9 +6,12 @@ AUTHOR_CITATION_PATTERNS = [r"Jaehnigk", r"J\.\s*Jaehnigk"]
 # MODEL_REPO = "bartowski/Qwen2.5-3B-Instruct-GGUF"  ## local
 # MODEL_FILE = "Qwen2.5-3B-Instruct-Q4_K_M.gguf"
 
-MODEL_REPO = "bartowski/Qwen2.5-1.5B-Instruct-GGUF"  ## app
-MODEL_FILE = "Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
+# MODEL_REPO = "bartowski/Qwen2.5-1.5B-Instruct-GGUF"  ## app
+# MODEL_FILE = "Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
 
+
+MODEL_REPO = "bartowski/Qwen2.5-0.5B-Instruct-GGUF"  ## app
+MODEL_FILE = "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
 EMBED_MODEL_NAME = "all-MiniLM-L6-v2"
 
 # --- Paths ---
