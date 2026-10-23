@@ -18,7 +18,7 @@ natural language and get grounded, sourced answers.
 │   ├── vectorstore.py
 │   ├── agent.py
 │   ├── ingest.py
-│   └── ui.py
+│   
 ├── scripts/
 │   └── verify_model.py
 └── data/
