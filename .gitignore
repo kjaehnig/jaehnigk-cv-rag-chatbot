@@ -7,7 +7,7 @@ models/
 .cache/
 
 # Local env file (your laptop's, not the app's)
-requirements.txt
+
 
 # Python
 __pycache__/
