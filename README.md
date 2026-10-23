@@ -2,6 +2,30 @@ An agentic RAG chatbot over my CV, publications, and code repositories.
 Ask questions about my background, skills, projects, or research in
 natural language and get grounded, sourced answers.
 
+## Repository Layout
+career-rag-local/
+├── README.md
+├── requirements.txt
+├── packages.txt
+├── runtime.txt
+├── .gitignore
+├── app.py
+├── src/
+│   ├── __init__.py
+│   ├── config.py
+│   ├── llm.py
+│   ├── embeddings.py
+│   ├── vectorstore.py
+│   ├── agent.py
+│   ├── ingest.py
+│   └── ui.py
+├── scripts/
+│   └── verify_model.py
+└── data/
+    ├── cv/
+    ├── publications/
+    └── github/
+
 ## Stack
 
 - **Streamlit** — chat UI
