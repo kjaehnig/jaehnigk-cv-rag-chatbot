@@ -3,6 +3,7 @@ Ask questions about my background, skills, projects, or research in
 natural language and get grounded, sourced answers.
 
 ## Repository Layout
+'''
 career-rag-local/
 ├── README.md
 ├── requirements.txt
@@ -25,7 +26,7 @@ career-rag-local/
     ├── cv/
     ├── publications/
     └── github/
-
+'''
 ## Stack
 
 - **Streamlit** — chat UI
