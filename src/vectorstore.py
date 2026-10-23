@@ -73,39 +73,61 @@ def retrieve(query, embedder, collection, top_k=TOP_K,
     else:
         where = {"section_type": "own"}
 
-    def _query(w, n=None):
-        return collection.query(
+    # --- Semantic pass ---------------------------------------------------
+    def _query(n, doc_filter=None):
+        kwargs = dict(
             query_embeddings=q_emb,
-            n_results=n or top_k,
-            where=w,
+            n_results=n,
+            where=where,
             include=["documents", "metadatas", "distances"],
         )
+        if doc_filter:
+            kwargs["where_document"] = doc_filter
+        return collection.query(**kwargs)
 
     try:
-        res = _query(where)
+        sem = _query(top_k)
     except Exception as e:
-        print(f"[vectorstore] filtered query failed: {e}")
-        res = _query({"section_type": "own"})
+        print(f"[vectorstore] semantic query failed: {e}")
+        sem = _query(top_k)  # retry without filter
 
-    if focus_high_signal and (not res["documents"] or not res["documents"][0]):
-        res = _query({"section_type": "own"})
+    docs = list(sem["documents"][0]) if sem["documents"] else []
+    metas = list(sem["metadatas"][0]) if sem["metadatas"] else []
 
+    # --- Keyword pass (fixes OCR / project-name queries) -----------------
     if entity_lock:
         ents = _extract_entities(query)
-        if ents:
-            big = _query(where, n=max(top_k * 4, 20))
-            docs = big["documents"][0] if big["documents"] else []
-            metas = big["metadatas"][0] if big["metadatas"] else []
+        seen = {d[:120].lower() for d in docs}
 
-            def score(doc, meta):
-                hay = ((meta.get("provenance") or "") + " " + doc).lower()
-                return sum(1 for e in ents if e.lower() in hay)
+        for ent in ents:
+            if len(ent) < 3:
+                continue
+            try:
+                kw = _query(top_k, doc_filter={"$contains": ent})
+            except Exception:
+                # Some Chroma versions require exact case; try variations
+                try:
+                    kw = _query(top_k, doc_filter={"$contains": ent.capitalize()})
+                except Exception:
+                    continue
 
-            scored = [(d, m, score(d, m)) for d, m in zip(docs, metas)]
-            keep = [(d, m) for d, m, s in scored if s > 0]
-            keep.sort(key=lambda dm: -score(dm[0], dm[1]))
-            if keep:
-                res["documents"][0] = [k[0] for k in keep[:top_k]]
-                res["metadatas"][0] = [k[1] for k in keep[:top_k]]
+            for d, m in zip(kw["documents"][0], kw["metadatas"][0]):
+                key = d[:120].lower()
+                if key not in seen:
+                    seen.add(key)
+                    docs.append(d)
+                    metas.append(m)
 
-    return res
+    # Deduplicate and trim
+    final_docs, final_metas, seen = [], [], set()
+    for d, m in zip(docs, metas):
+        key = d[:120].lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        final_docs.append(d)
+        final_metas.append(m)
+        if len(final_docs) >= top_k:
+            break
+
+    return {"documents": [final_docs], "metadatas": [final_metas]}

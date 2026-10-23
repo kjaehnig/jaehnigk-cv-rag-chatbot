@@ -43,14 +43,15 @@ CONTENT:
 5. Do NOT add praise, evaluation, or impact claims. Never write
    "significant", "impressive", "widely recognized", "cutting edge",
    "state of the art", "contribution to the field", or "demonstrated
-   the effectiveness". You have no information about how the field
-   received this work.
+   the effectiveness".
 6. Do NOT add framing like "This work demonstrates" or "The project
    showcases". Start with what the project actually is, then what it
    does. Stop there.
-7. If the context is a short project description, write a short answer.
-   Match the length of the source, not the length you think a "tell me
-   about X" question deserves.
+7. Do NOT narrate what the source document says. Never write "is
+   described as", "the final model is", "as mentioned in", "the
+   schematic shows". State the facts directly.
+8. If the context is a short project description, write a short answer.
+   Match the length of the source.
 """
 
 _SYSTEM = f"""
@@ -135,6 +136,95 @@ _LEAK_MARKERS = [
 ]
 
 
+_EDITORIAL_PATTERNS = [
+    # Contributions / significance
+    re.compile(r"[^.]*?(?:significant|impressive|cutting[- ]edge|"
+               r"state[- ]of[- ]the[- ]art|widely[- ]recognized|"
+               r"well[- ]recognized|important)\s+"
+               r"(?:contribution|advance|work|project)[^.]*\.", re.I),
+    # Field contributions
+    re.compile(r"[^.]*?(?:contributes|contribution|advancement)\s+to\s+"
+               r"(?:the\s+)?field\s+of\s+[^.]*\.", re.I),
+    # Showcasing / demonstrating
+    re.compile(r"[^.]*?(?:showcases|showcasing|demonstrates|demonstrating|"
+               r"highlights|highlighting)\s+(?:the\s+)?"
+               r"(?:benefits?|effectiveness|capabilities|potential|"
+               r"importance)[^.]*\.", re.I),
+    # Impact claims
+    re.compile(r"[^.]*?(?:has been|is now|is widely|have been)\s+"
+               r"(?:applied|adopted|used|recognized)[^.]*\.", re.I),
+    # Cliché conclusions
+    re.compile(r"[^.]*?(?:in\s+conclusion|to\s+summarize|overall,)"
+               r"[^.]*\.", re.I),
+]
+
+
+_FIRST_PERSON_REPLACEMENTS = [
+    (r"\bI'm\b", "they're"),
+    (r"\bI've\b", "they've"),
+    (r"\bI'll\b", "they'll"),
+    (r"\bI'd\b", "they'd"),
+    (r"\bI\b(?!')", "Karl"),
+    (r"\bmy\b", "their"),
+    (r"\bme\b", "them"),
+    (r"\bmine\b", "theirs"),
+    (r"\bmyself\b", "themself"),
+]
+
+_FIRST_PERSON_TOKEN = re.compile(
+    r"\b(I|I'm|I've|I'll|I'd|my|me|mine|myself)\b(?!')"
+)
+
+_FIGURE_REF = re.compile(
+    r"\s*(?:is |are )?(?:plotted|shown|displayed|illustrated|depicted)"
+    r"\s+(?:below|above)\s+(?:in |as )?(?:figure|fig\.?)\s*\d+\.?",
+    re.IGNORECASE,
+)
+
+
+def _to_third_person(text: str) -> str:
+    """Convert first-person prose to third-person.
+
+    Source docs are written in first person ("I decided...", "my model").
+    Without conversion, direct-quote responses read as the candidate
+    narrating, which is jarring in a portfolio chatbot.
+
+    Only fires when the response is majority first-person — avoids
+    munging third-person content that happens to include "I" in a quote.
+    """
+    if not text.strip():
+        return text
+
+    first_person_count = len(_FIRST_PERSON_TOKEN.findall(text))
+    word_count = len(text.split())
+    if word_count < 5 or first_person_count / word_count < 0.02:
+        return text
+
+    for pat, repl in _FIRST_PERSON_REPLACEMENTS:
+        text = re.sub(pat, repl, text)
+
+    # Strip "plotted below in figure N" — reads oddly out of context
+    text = _FIGURE_REF.sub("", text)
+    # Collapse double spaces left by the figure strip
+    text = re.sub(r"  +", " ", text)
+    return text.strip()
+
+
+def _strip_editorial_drift(text: str) -> str:
+    """Remove sentences with editorial / evaluative claims.
+
+    These are phrases small models append from their training distribution
+    ("This work contributes to the field...", "widely recognized...") that
+    are never backed by the retrieved context. Strip them.
+    """
+    for pat in _EDITORIAL_PATTERNS:
+        text = pat.sub("", text)
+    # Collapse extra blank space left behind
+    text = re.sub(r"\.\s+\.", ".", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
 def _truncate_at_leak(t: str) -> str:
     """Cut everything from the first leak marker onward.
 
@@ -149,6 +239,36 @@ def _truncate_at_leak(t: str) -> str:
         if m and m.start() > 0:
             t = t[: m.start()].rstrip()
     return t
+
+
+def _dedupe_repeated_blocks(text: str) -> str:
+    """Remove repeated paragraphs and bullets.
+
+    Small models (1-2B) degenerate into loops where the same paragraph
+    is emitted 2-5 times. The repetition is usually verbatim or near-
+    verbatim, so normalized comparison catches it reliably.
+    """
+    # Split into blocks by blank lines OR bullet markers
+    # (some models emit bullets without newlines between them)
+    blocks = re.split(r"\n\s*\n|(?=\s-\s)", text.strip())
+
+    seen = set()
+    kept = []
+    for block in blocks:
+        if not block.strip():
+            continue
+        # Normalize: strip bullet prefix, collapse whitespace, lowercase
+        norm = re.sub(r"^[\s\-*•]+", "", block.strip())
+        norm = re.sub(r"\s+", " ", norm).lower().strip()
+
+        # Also catch near-duplicates by checking first 120 chars
+        key = norm[:120] if len(norm) > 120 else norm
+        if key in seen:
+            continue
+        seen.add(key)
+        kept.append(block.strip())
+
+    return "\n\n".join(kept)
 
 
 def _wants_list(q: str) -> bool:
@@ -201,10 +321,16 @@ def _clean(text: str) -> str:
     lines = [ln for ln in t.split("\n") if not _PROMPT_LEAK.search(ln)]
     t = "\n".join(lines).strip()
 
+    t = _strip_editorial_drift(t)
+    t = _dedupe_repeated_blocks(t)
+
     if "```" in t:
         t = t.split("```")[0].strip()
 
     t = re.sub(r"^(answer|response|a)\s*:\s*", "", t, flags=re.IGNORECASE).strip()
+
+    # NEW: first → third person, then pronoun fixer as backup
+    t = _to_third_person(t)
     t = _fix_pronouns(t, AUTHOR_NAME)
     return t
 

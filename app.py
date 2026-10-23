@@ -12,7 +12,7 @@ from src.embeddings import load_embedder
 from src.vectorstore import get_collection, build_collection, retrieve
 from src.ingest import load_documents, chunk_documents
 
-from src.agent import agentic_decide, generate_response
+from src.agent import agentic_decide, generate_response,_wants_list
 from src.config import (
     AUTHOR_NAME, MODEL_FILE, EMBED_MODEL_NAME, DATA_DIR, TOP_K,
 )
@@ -48,6 +48,19 @@ def render_chat(retrieve_fn, complete_fn) -> None:
                     metas  = res["metadatas"][0] if res["metadatas"] else []
 
                 answer = generate_response(complete_fn, prompt, chunks, metas)
+
+                # Retry if the model truncated a list request to < 3 items
+                if _wants_list(prompt) and answer.count("-") < 2 and len(answer.split("\n")) < 3:
+                    if len(chunks) > 0:
+                        stricter = (
+                            prompt
+                            + "\n\nIMPORTANT: The context above contains multiple skills. "
+                              "List EVERY skill mentioned. Minimum 5 bullets. One per line, "
+                              "each starting with '- '."
+                        )
+                        stricter_answer = generate_response(complete_fn, stricter, chunks, metas)
+                        if stricter_answer.count("-") >= answer.count("-"):
+                            answer = stricter_answer
                 st.markdown(answer)
 
                 if use_kb and chunks:

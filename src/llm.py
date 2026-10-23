@@ -65,7 +65,8 @@ def make_completer(llm):
             max_tokens=min(MAX_NEW_TOKENS, 700),
             temperature=0.15,
             top_p=0.9,
-            repeat_penalty=1.05,
+            repeat_penalty=1.15,         # was 1.05 — raise for paragraph loops
+            presence_penalty=0.1,            
             stop=_STOP,
             echo=False,
         )
